@@ -106,6 +106,12 @@
             padding: 15px;
             border-radius: 8px;
             display: none;
+            overflow: hidden; /* Taşmaları engellemek için */
+        }
+        
+        #qrcode img {
+            max-width: 100%;
+            height: auto;
         }
 
         #btn-download {
@@ -152,8 +158,6 @@
 
     <script>
         // --- DİL AYARLARI ---
-        
-        // Çeviri Sözlüğü
         const translations = {
             tr: {
                 title: "QR Kod Oluşturucu",
@@ -173,22 +177,16 @@
             }
         };
 
-        // Kullanıcının sistem dilini bul
-        // Eğer dil 'tr' ile başlıyorsa (tr-TR gibi) 'tr' seç, yoksa 'en' seç.
         const userLang = navigator.language || navigator.userLanguage; 
         const currentLang = userLang.startsWith('tr') ? 'tr' : 'en';
 
-        // Sayfa yüklendiğinde metinleri güncelle
         window.onload = function() {
             const t = translations[currentLang];
-
             document.getElementById('lbl-title').innerText = t.title;
             document.getElementById('text-input').placeholder = t.placeholder;
             document.getElementById('btn-generate').innerText = t.generateBtn;
             document.getElementById('btn-download').innerText = t.downloadBtn;
             document.getElementById('lbl-dev').innerText = t.devLabel;
-            
-            // Tarayıcı sekme başlığını da güncelle
             document.title = t.title + " - kayapater.dev";
         };
 
@@ -200,27 +198,37 @@
             const input = document.getElementById("text-input");
             const qrContainer = document.getElementById("qrcode");
             const downloadBtn = document.getElementById("btn-download");
-            const text = input.value.trim();
-            const t = translations[currentLang]; // Uyarı mesajı için dili al
+            let text = input.value.trim(); // 'let' kullandık çünkü değiştireceğiz
+            const t = translations[currentLang];
 
             if (!text) {
                 alert(t.alertEmpty);
                 return;
             }
 
+            // --- HATA DÜZELTME KISMI BURASI ---
+            // Türkçe karakterleri QR kütüphanesinin anlayacağı formata çeviriyoruz.
+            // Bu satır olmadan 'ğ, ş, ı' gibi harfler beyaz ekran hatası verir.
+            text = unescape(encodeURIComponent(text));
+            // ----------------------------------
+
             qrContainer.innerHTML = "";
             qrContainer.style.display = "flex";
 
-            qrcode = new QRCode(qrContainer, {
-                text: text,
-                width: 200,
-                height: 200,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
-
-            downloadBtn.style.display = "block";
+            try {
+                qrcode = new QRCode(qrContainer, {
+                    text: text,
+                    width: 200,
+                    height: 200,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.M // Orta seviye hata düzeltme (Daha yoğun veri sığdırabilir)
+                });
+                downloadBtn.style.display = "block";
+            } catch (e) {
+                console.error("QR oluşturma hatası:", e);
+                alert("QR oluşturulurken bir hata oluştu. Lütfen daha kısa bir metin deneyin.");
+            }
         }
 
         function downloadQR() {
