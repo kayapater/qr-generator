@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator - kayapater.dev</title>
+    <style>
+        /* --- CSS DEĞİŞKENLERİ VE TEMA AYARLARI --- */
+        :root {
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --sub-text-color: #666666;
+            --input-bg: #ffffff;
+            --input-border: #e0e0e0;
+            --btn-color: #3498db;
+            --btn-hover: #2980b9;
+            --shadow: rgba(0,0,0,0.1);
+            --link-color: #3498db;
+        }
+
+        /* Koyu Tema (Otomatik Algılama) */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #121212;
+                --card-bg: #1e1e1e;
+                --text-color: #e0e0e0;
+                --sub-text-color: #aaaaaa;
+                --input-bg: #2d2d2d;
+                --input-border: #444444;
+                --shadow: rgba(0,0,0,0.5);
+                --link-color: #5dade2;
+            }
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px var(--shadow);
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        h2 { margin-bottom: 20px; color: var(--text-color); }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            border: 2px solid var(--input-border);
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus { border-color: var(--btn-color); }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--btn-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: var(--btn-hover); }
+
+        #qrcode {
+            margin-top: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #fff; /* QR okunabilirliği için daima beyaz */
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        #btn-download {
+            margin-top: 15px;
+            background-color: #27ae60;
+            display: none;
+        }
+        #btn-download:hover { background-color: #219150; }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 14px;
+            color: var(--sub-text-color);
+        }
+        .footer a {
+            color: var(--link-color);
+            text-decoration: none;
+            font-weight: bold;
+            border-bottom: 1px dotted var(--link-color);
+        }
+        .footer a:hover { opacity: 0.8; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        <div class="card">
+            <h2 id="lbl-title">QR Code Generator</h2>
+            
+            <input type="text" id="text-input" placeholder="Enter link or text..." autocomplete="off">
+            
+            <button id="btn-generate" onclick="generateQR()">Generate QR Code</button>
+
+            <div id="qrcode"></div>
+            
+            <button id="btn-download" onclick="downloadQR()">Download Image</button>
+        </div>
+
+        <div class="footer">
+            <span id="lbl-dev">Developer:</span> <a href="https://kayapater.dev" target="_blank">kayapater.dev</a>
+        </div>
+    </div>
+
+    <script>
+        // --- DİL AYARLARI ---
+        
+        // Çeviri Sözlüğü
+        const translations = {
+            tr: {
+                title: "QR Kod Oluşturucu",
+                placeholder: "Link veya metin girin...",
+                generateBtn: "QR Kod Oluştur",
+                downloadBtn: "Resmi İndir",
+                devLabel: "Geliştirici:",
+                alertEmpty: "Lütfen bir metin girin!"
+            },
+            en: {
+                title: "QR Code Generator",
+                placeholder: "Enter link or text...",
+                generateBtn: "Generate QR Code",
+                downloadBtn: "Download Image",
+                devLabel: "Developer:",
+                alertEmpty: "Please enter some text!"
+            }
+        };
+
+        // Kullanıcının sistem dilini bul
+        // Eğer dil 'tr' ile başlıyorsa (tr-TR gibi) 'tr' seç, yoksa 'en' seç.
+        const userLang = navigator.language || navigator.userLanguage; 
+        const currentLang = userLang.startsWith('tr') ? 'tr' : 'en';
+
+        // Sayfa yüklendiğinde metinleri güncelle
+        window.onload = function() {
+            const t = translations[currentLang];
+
+            document.getElementById('lbl-title').innerText = t.title;
+            document.getElementById('text-input').placeholder = t.placeholder;
+            document.getElementById('btn-generate').innerText = t.generateBtn;
+            document.getElementById('btn-download').innerText = t.downloadBtn;
+            document.getElementById('lbl-dev').innerText = t.devLabel;
+            
+            // Tarayıcı sekme başlığını da güncelle
+            document.title = t.title + " - kayapater.dev";
+        };
+
+        // --- QR KOD MANTIĞI ---
+
+        let qrcode = null;
+
+        function generateQR() {
+            const input = document.getElementById("text-input");
+            const qrContainer = document.getElementById("qrcode");
+            const downloadBtn = document.getElementById("btn-download");
+            const text = input.value.trim();
+            const t = translations[currentLang]; // Uyarı mesajı için dili al
+
+            if (!text) {
+                alert(t.alertEmpty);
+                return;
+            }
+
+            qrContainer.innerHTML = "";
+            qrContainer.style.display = "flex";
+
+            qrcode = new QRCode(qrContainer, {
+                text: text,
+                width: 200,
+                height: 200,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            downloadBtn.style.display = "block";
+        }
+
+        function downloadQR() {
+            const qrContainer = document.getElementById("qrcode");
+            const img = qrContainer.querySelector("img");
+
+            if (img && img.src) {
+                const link = document.createElement("a");
+                link.href = img.src;
+                link.download = "qr-code-kayapater.png";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+    </script>
+</body>
+</html>
