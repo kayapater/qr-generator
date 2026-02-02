@@ -225,16 +225,6 @@
             <input type="text" id="text-input" placeholder="Enter link or text..." autocomplete="off">
             
             <div class="options-group">
-                <label id="lbl-size">Size:</label>
-                <select id="size-select">
-                    <option value="200">Small (200x200)</option>
-                    <option value="300" selected>Medium (300x300)</option>
-                    <option value="400">Large (400x400)</option>
-                    <option value="500">Extra Large (500x500)</option>
-                </select>
-            </div>
-
-            <div class="options-group">
                 <label id="lbl-colors">Colors:</label>
                 <div class="color-row">
                     <div class="color-input-wrapper">
@@ -274,7 +264,6 @@
                 downloadBtn: "Resmi İndir",
                 devLabel: "Geliştirici:",
                 alertEmpty: "Lütfen bir metin girin!",
-                sizeLabel: "Boyut:",
                 colorsLabel: "Renkler:",
                 foregroundLabel: "Ön Plan",
                 backgroundLabel: "Arka Plan",
@@ -287,7 +276,6 @@
                 downloadBtn: "Download Image",
                 devLabel: "Developer:",
                 alertEmpty: "Please enter some text!",
-                sizeLabel: "Size:",
                 colorsLabel: "Colors:",
                 foregroundLabel: "Foreground",
                 backgroundLabel: "Background",
@@ -306,7 +294,6 @@
             document.getElementById('btn-generate').innerText = t.generateBtn;
             document.getElementById('btn-download').innerText = t.downloadBtn;
             document.getElementById('lbl-dev').innerText = t.devLabel;
-            document.getElementById('lbl-size').innerText = t.sizeLabel;
             document.getElementById('lbl-colors').innerText = t.colorsLabel;
             document.getElementById('lbl-foreground').innerText = t.foregroundLabel;
             document.getElementById('lbl-background').innerText = t.backgroundLabel;
@@ -330,7 +317,6 @@
             const canvas = document.getElementById("qrcode");
             const downloadBtn = document.getElementById("btn-download");
             const loading = document.getElementById("loading");
-            const sizeSelect = document.getElementById("size-select");
             const fgColor = document.getElementById("fg-color");
             const bgColor = document.getElementById("bg-color");
             const t = translations[currentLang];
@@ -355,8 +341,8 @@
             // Kısa bir gecikme ile loading efekti
             setTimeout(() => {
                 try {
-                    // Seçilen değerleri al
-                    const selectedSize = parseInt(sizeSelect.value);
+                    // Sabit boyut: 500x500 (en yüksek çözünürlük)
+                    const selectedSize = 500;
                     const foregroundColor = fgColor.value;
                     const backgroundColor = bgColor.value;
 
