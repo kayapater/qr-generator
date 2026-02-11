@@ -108,53 +108,57 @@
             color: var(--text-color);
         }
 
-        .color-row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .color-input-wrapper {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        input[type="color"] {
-            width: 50px;
-            height: 40px;
-            border: 2px solid var(--input-border);
-            border-radius: 6px;
-            cursor: pointer;
-            background: none;
-            outline: none;
-        }
-
-        input[type="color"]::-webkit-color-swatch-wrapper {
-            padding: 0;
-        }
-
-        input[type="color"]::-webkit-color-swatch {
-            border: none;
-            border-radius: 4px;
-        }
-
-        select {
+        .pickr {
             width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
-            background-color: var(--input-bg);
-            color: var(--text-color);
+            height: 45px;
+        }
+
+        .pickr .pcr-button {
+            width: 100%;
+            height: 45px;
             border: 2px solid var(--input-border);
             border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            outline: none;
-            transition: border-color 0.3s;
+            transition: border-color 0.3s, opacity 0.3s;
         }
 
-        select:focus { border-color: var(--btn-color); }
+        .pickr .pcr-button:hover {
+            border-color: var(--btn-color);
+        }
+
+        .pickr.disabled .pcr-button {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .pcr-app {
+            background: var(--card-bg) !important;
+            border: 1px solid var(--input-border) !important;
+            box-shadow: 0 10px 25px var(--shadow) !important;
+        }
+
+        .pcr-app .pcr-interaction input {
+            background: var(--input-bg) !important;
+            color: var(--text-color) !important;
+            border: 1px solid var(--input-border) !important;
+        }
+
+        .pcr-app .pcr-interaction .pcr-result {
+            color: var(--text-color) !important;
+            background: var(--input-bg) !important;
+            border: 1px solid var(--input-border) !important;
+        }
+
+        .pcr-app .pcr-interaction .pcr-type.active {
+            color: var(--btn-color) !important;
+        }
+
+        .pcr-app .pcr-interaction .pcr-save {
+            background: var(--btn-color) !important;
+        }
+
+        .pcr-app .pcr-interaction .pcr-clear {
+            background: #e74c3c !important;
+        }
 
         .loading {
             display: none;
@@ -186,8 +190,7 @@
             display: none;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
-        
-        /* QR Kod Canvas */
+
         #qrcode {
             display: block;
             width: 220px !important;
@@ -215,7 +218,9 @@
         }
         .footer a:hover { opacity: 0.8; }
     </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css">
     <script src="lib/qrcode.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
 </head>
 <body>
 
@@ -227,15 +232,24 @@
             
             <div class="options-group">
                 <label id="lbl-colors">Colors:</label>
-                <div class="color-row">
-                    <div class="color-input-wrapper">
-                        <input type="color" id="fg-color" value="#000000">
-                        <span id="lbl-foreground">Foreground</span>
+                
+                <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; color: var(--sub-text-color); margin-bottom: 5px; display: block;" id="lbl-foreground">Foreground</label>
+                        <div id="fg-color-picker"></div>
                     </div>
-                    <div class="color-input-wrapper">
-                        <input type="color" id="bg-color" value="#ffffff">
-                        <span id="lbl-background">Background</span>
+
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; color: var(--sub-text-color); margin-bottom: 5px; display: block;" id="lbl-background">Background</label>
+                        <div id="bg-color-picker"></div>
                     </div>
+                </div>
+
+                <div style="margin-top: 10px;">
+                    <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" id="transparent-bg" style="cursor: pointer; width: 18px; height: 18px;">
+                        <span id="lbl-transparent">Transparent Background</span>
+                    </label>
                 </div>
             </div>
             
@@ -256,7 +270,6 @@
     </div>
 
     <script>
-        // --- Çeviri Ayarları ---
         const translations = {
             tr: {
                 title: "QR Kod Oluşturucu",
@@ -268,7 +281,8 @@
                 colorsLabel: "Renkler:",
                 foregroundLabel: "Ön Plan",
                 backgroundLabel: "Arka Plan",
-                generating: "Oluşturuluyor"
+                generating: "Oluşturuluyor",
+                transparentLabel: "Şeffaf Arka Plan"
             },
             en: {
                 title: "QR Code Generator",
@@ -280,14 +294,45 @@
                 colorsLabel: "Colors:",
                 foregroundLabel: "Foreground",
                 backgroundLabel: "Background",
-                generating: "Generating"
+                generating: "Generating",
+                transparentLabel: "Transparent Background"
             }
         };
 
         const userLang = navigator.language || navigator.userLanguage; 
         const currentLang = userLang.startsWith('tr') ? 'tr' : 'en';
 
-        // Sayfa yüklendiğinde metinleri ayarla
+        let fgPickr, bgPickr;
+        let currentFgColor = '#000000';
+        let currentBgColor = '#FFFFFF';
+
+        function renamePickrButtons() {
+            document.querySelectorAll('.pcr-type').forEach(function(btn) {
+                if (btn.dataset.type === 'HEXA') btn.textContent = 'HEX';
+                if (btn.dataset.type === 'RGBA') btn.textContent = 'RGB';
+            });
+        }
+
+        function createPickr(el, defaultColor, swatches) {
+            return Pickr.create({
+                el: el,
+                theme: 'nano',
+                default: defaultColor,
+                swatches: swatches,
+                components: {
+                    preview: true,
+                    opacity: false,
+                    hue: true,
+                    interaction: {
+                        hex: true,
+                        rgba: true,
+                        input: true,
+                        save: true
+                    }
+                }
+            });
+        }
+
         window.onload = function() {
             const t = translations[currentLang];
             document.getElementById('lbl-title').innerText = t.title;
@@ -299,17 +344,54 @@
             document.getElementById('lbl-foreground').innerText = t.foregroundLabel;
             document.getElementById('lbl-background').innerText = t.backgroundLabel;
             document.getElementById('loading').innerText = t.generating;
+            document.getElementById('lbl-transparent').innerText = t.transparentLabel;
             document.title = t.title + " - kayapater.dev";
 
-            // Enter tuşuyla QR kod oluşturma
             document.getElementById('text-input').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    generateQR();
+                if (e.key === 'Enter') generateQR();
+            });
+
+            fgPickr = createPickr('#fg-color-picker', '#000000', [
+                '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF',
+                '#FFFF00', '#FF00FF', '#00FFFF', '#FF8800', '#8800FF'
+            ]);
+
+            bgPickr = createPickr('#bg-color-picker', '#FFFFFF', [
+                '#FFFFFF', '#000000', '#FF0000', '#00FF00', '#0000FF',
+                '#FFFF00', '#FF00FF', '#00FFFF', '#FF8800', '#8800FF'
+            ]);
+
+            fgPickr.on('save', (color) => {
+                if (color) currentFgColor = color.toHEXA().toString().substring(0, 7);
+                fgPickr.hide();
+            });
+
+            fgPickr.on('change', (color) => {
+                if (color) currentFgColor = color.toHEXA().toString().substring(0, 7);
+            });
+
+            bgPickr.on('save', (color) => {
+                if (color) currentBgColor = color.toHEXA().toString().substring(0, 7);
+                bgPickr.hide();
+            });
+
+            bgPickr.on('change', (color) => {
+                if (color) currentBgColor = color.toHEXA().toString().substring(0, 7);
+            });
+
+            fgPickr.on('show', renamePickrButtons);
+            bgPickr.on('show', renamePickrButtons);
+            renamePickrButtons();
+
+            document.getElementById('transparent-bg').addEventListener('change', function(e) {
+                if (e.target.checked) {
+                    bgPickr.disable();
+                } else {
+                    bgPickr.enable();
                 }
             });
         };
 
-        // --- QR Kod Mantığı (node-qrcode) ---
         let qr = null;
 
         function generateQR() {
@@ -318,8 +400,7 @@
             const canvas = document.getElementById("qrcode");
             const downloadBtn = document.getElementById("btn-download");
             const loading = document.getElementById("loading");
-            const fgColor = document.getElementById("fg-color");
-            const bgColor = document.getElementById("bg-color");
+            const transparentBg = document.getElementById("transparent-bg");
             const t = translations[currentLang];
             let text = input.value.trim();
 
@@ -328,58 +409,65 @@
                 return;
             }
 
-            // Kütüphanenin yüklendiğinden emin olalım
             if (typeof QRCode === 'undefined') {
                 alert("QR Kütüphanesi yüklenemedi. Lütfen sayfayı yenileyin.");
                 return;
             }
 
-            // Loading göster
             loading.style.display = "block";
             container.style.display = "none";
             downloadBtn.style.display = "none";
 
-            // Kısa bir gecikme ile loading efekti
             setTimeout(() => {
                 try {
-                    // Sabit boyut: 500x500 (en yüksek çözünürlük)
                     const selectedSize = 500;
-                    const foregroundColor = fgColor.value;
-                    const backgroundColor = bgColor.value;
+                    const foregroundColor = currentFgColor;
+                    const isTransparent = transparentBg.checked;
 
-                    // Hata düzeltme seviyesini uzunluğa göre ayarla
-                    let errorLevel = 'M';  // Orta seviye - dengeli
+                    let errorLevel = 'M';
                     if (text.length > 100) {
-                        errorLevel = 'L';  // Uzun metinler için düşük
+                        errorLevel = 'L';
                     } else if (text.length < 50) {
-                        errorLevel = 'H';  // Kısa metinler için yüksek güvenlik
+                        errorLevel = 'H';
                     }
 
-                    // QR kod oluştur (node-qrcode mükemmel UTF-8 desteği)
                     QRCode.toCanvas(canvas, text, {
                         width: selectedSize,
                         margin: 2,
                         color: {
                             dark: foregroundColor,
-                            light: backgroundColor
+                            light: isTransparent ? '#FFFFFF' : currentBgColor
                         },
                         errorCorrectionLevel: errorLevel
                     }, function (error) {
                         if (error) {
-                            console.error('QR kod oluşturma hatası:', error);
+                            console.error(error);
                             loading.style.display = "none";
                             alert(currentLang === 'tr' 
                                 ? 'QR kod oluşturulamadı. Metin çok uzun olabilir.'
                                 : 'Failed to generate QR code. Text might be too long.');
                         } else {
-                            // Başarılı - Loading gizle, QR kodunu göster
+                            if (isTransparent) {
+                                const ctx = canvas.getContext('2d');
+                                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                                const data = imageData.data;
+                                
+                                for (let i = 0; i < data.length; i += 4) {
+                                    if (data[i] > 250 && data[i + 1] > 250 && data[i + 2] > 250) {
+                                        data[i + 3] = 0;
+                                    }
+                                }
+                                
+                                ctx.putImageData(imageData, 0, 0);
+                            }
+                            
                             loading.style.display = "none";
                             container.style.display = "flex";
                             downloadBtn.style.display = "block";
                         }
                     });
                 } catch (error) {
-                    console.error('Beklenmeyen hata:', error);
+                    console.error(error);
                     loading.style.display = "none";
                     alert(currentLang === 'tr' 
                         ? 'Bir hata oluştu. Lütfen tekrar deneyin.'
